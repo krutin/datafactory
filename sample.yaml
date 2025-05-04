@@ -1,0 +1,67 @@
+trigger:
+  branches:
+    include:
+      - main
+
+stages:
+- stage: Dev
+  displayName: 'Deploy to Dev Data Factory'
+  jobs:
+  - job: DeployADF
+    displayName: 'ARM Template Deployment to Dev'
+    pool:
+      vmImage: 'windows-latest'
+    steps:
+    - checkout: self
+
+    # 🔍 Debug: List files in the repo
+    - script: |
+       echo "Listing files in repo root:"
+       dir
+      displayName: 'List files in build directory'
+
+
+    - task: AzureResourceManagerTemplateDeployment@3
+      inputs:
+        deploymentScope: 'Resource Group'
+        azureResourceManagerConnection: 'sampleconnection'
+        subscriptionId: '9418bb6a-c450-4952-96b4-18c2aa4d8c00'
+        action: 'Create Or Update Resource Group'
+        resourceGroupName: 'newrg'
+        location: 'centralindia'
+        templateLocation: 'Linked artifact'
+        csmFile: 'ARMTemplateForFactory.json'
+        csmParametersFile: 'ARMTemplateParametersForFactory.json'
+        deploymentMode: 'Incremental'
+
+- stage: Prod
+  displayName: 'Deploy to Production Data Factory'
+  dependsOn: Dev
+  condition: succeeded()
+  jobs:
+  - deployment: DeployProd
+    environment: 'Production'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+
+          # 🔍 Debug: List files in the repo
+          - script: |
+             echo "Listing files in repo root:"
+             dir
+            displayName: 'List files in build directory'
+
+          - task: AzureResourceManagerTemplateDeployment@3
+            inputs:
+              deploymentScope: 'Resource Group'
+              azureResourceManagerConnection: 'sampleconnection'
+              subscriptionId: '9418bb6a-c450-4952-96b4-18c2aa4d8c00'
+              action: 'Create Or Update Resource Group'
+              resourceGroupName: 'newrg'
+              location: 'centralindia'
+              templateLocation: 'Linked artifact'
+              csmFile: 'ARMTemplateForFactory.json'
+              csmParametersFile: 'ARMTemplateParametersForFactory.json'
+              deploymentMode: 'Incremental'
